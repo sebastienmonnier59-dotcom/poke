@@ -6,7 +6,7 @@ import {
 } from './state.js';
 import {
   initStage, moveStageTo, resize, showSpecies, setupBattle, switchBattler,
-  playAttack, playKO, endBattleScene, screenPosOf, getThumb,
+  playAttack, playKO, endBattleScene, screenPosOf, getThumb, pokeIdle,
 } from './creature3d.js';
 import { Battle, autoPickMove, typeMultiplier } from './battle.js';
 import { buildNexusTeam, nexusPickMove, generateTaunt, generateVictoryLine, generateDefeatLine } from './ai.js';
@@ -26,6 +26,7 @@ const hadSave = load();
 ensureDaily();
 initAudio();
 initStage($('#stage-slot-team'));
+$('#stage-slot-team').addEventListener('click', () => { pokeIdle(); sfx.click(); });
 
 if (!state.starterChosen) {
   renderStarterScreen((speciesId) => {
@@ -68,7 +69,7 @@ document.querySelectorAll('.tab').forEach((tab) => {
 function selectCreature(uid) {
   sfx.click();
   state.activeUid = uid;
-  renderTeam(selectCreature);
+  renderTeam(selectCreature, !battleActive);
   save();
 }
 
@@ -340,7 +341,7 @@ async function animateSteps(steps) {
   }
   renderMoveButtons();
   setMoveButtonsEnabled(true);
-  renderTeam(selectCreature);
+  renderTeam(selectCreature, false);
   maybeAutoPlay();
 }
 
@@ -484,7 +485,7 @@ $('#btn-reset').addEventListener('click', () => {
 // ─────────── Boucle de jeu ───────────
 function refreshAll() {
   renderResources();
-  renderTeam(selectCreature);
+  renderTeam(selectCreature, !battleActive);
   renderDex();
   renderShop(buyItem);
   renderMissions(onClaimQuest);

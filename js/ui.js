@@ -22,7 +22,7 @@ export function renderResources() {
 }
 
 // ─── Équipe ───
-export function renderTeam(onSelect) {
+export function renderTeam(onSelect, updateStage = true) {
   const list = $('#team-list');
   list.innerHTML = '';
   for (const c of state.team) list.appendChild(creatureCard(c, onSelect));
@@ -32,7 +32,7 @@ export function renderTeam(onSelect) {
   $('#box-title').classList.toggle('hidden', state.box.length === 0);
   for (const c of state.box) boxList.appendChild(creatureCard(c, onSelect));
 
-  renderCreaturePlate();
+  renderCreaturePlate(updateStage);
   $('#potion-count').textContent = `× ${state.potions}`;
   $('#candy-count').textContent = `× ${state.candies}`;
 }
@@ -56,12 +56,12 @@ function creatureCard(c, onSelect) {
   return div;
 }
 
-export function renderCreaturePlate() {
+export function renderCreaturePlate(updateStage = true) {
   const c = activeCreature();
   const plate = $('#creature-plate');
   if (!c) { plate.innerHTML = '<em>Aucune créature</em>'; return; }
   const sp = speciesOf(c);
-  showSpecies(sp.id, c.shiny);
+  if (updateStage) showSpecies(sp.id, c.shiny); // jamais pendant un combat : ça détruirait la scène
   const evoTxt = sp.evolvesTo
     ? `Évolution → ${SPECIES_BY_ID[sp.evolvesTo].name} · NIV ${sp.evolveLevel}`
     : '★ Forme finale';

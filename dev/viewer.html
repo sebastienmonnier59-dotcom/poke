@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visionneuse d'espèce — dev</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; overflow:hidden; }
+body { background:linear-gradient(180deg,#aed9ff,#eef7ff); font-family:system-ui; }
+#stage { position:fixed; inset:0; }
+#label { position:fixed; top:14px; left:18px; font-weight:800; color:#1c2c48; letter-spacing:2px; }
+#exprs { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); display:flex; gap:6px; }
+#exprs button { padding:6px 12px; border:1px solid #9cc; background:#fff; border-radius:8px; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="label"></div>
+<div id="exprs"></div>
+<script type="module" src="viewer.js"></script>
+</body>
+</html>
