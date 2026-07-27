@@ -1,8 +1,9 @@
-// ═══════════ Moteur de combat auto (tour par tour) ═══════════
+// ═══════════ Moteur de combat interactif tour par tour ═══════════
 import { TYPE_CHART } from './data.js';
-import { speciesOf, maxHp, atkOf, defOf, spdOf } from './state.js';
+import { speciesOf, maxHp, atkOf, defOf, spdOf, movesOf } from './state.js';
 
 export function typeMultiplier(attType, defType) {
+  if (attType === 'normal') return 1;
   const chart = TYPE_CHART[attType];
   if (!chart) return 1;
   if (chart.strong.includes(defType)) return 2;
@@ -10,84 +11,100 @@ export function typeMultiplier(attType, defType) {
   return 1;
 }
 
+function damage(attacker, defender, move) {
+  const mult = typeMultiplier(move.type, speciesOf(defender.ref).type);
+  const crit = Math.random() < 0.08 ? 1.7 : 1;
+  const variance = 0.88 + Math.random() * 0.24;
+  const base = atkOf(attacker.ref) * 0.9 + move.power * 0.6;
+  const dmg = Math.max(1, Math.round(base * mult * crit * variance - defOf(defender.ref) * 0.45));
+  return { dmg, mult, crit: crit > 1 };
+}
+
 /**
- * Simule un combat complet entre deux équipes.
- * Renvoie { winner: 'player'|'enemy', log: [{text, cls?}], playerSurvivors }
- * Le log contient aussi des snapshots pour l'animation de l'UI.
+ * Combat interactif. L'UI appelle round(move) à chaque tour du joueur
+ * et anime la liste de "steps" renvoyée.
  */
-export function simulateBattle(playerTeam, enemyTeam) {
-  const log = [];
-  // Copies de travail (on ne touche pas aux vrais HP de l'ennemi ; ceux du joueur oui — le risque rend le jeu addictif)
-  const pTeam = playerTeam.map((c) => ({ ref: c, hp: c.hp, max: maxHp(c) }));
-  const eTeam = enemyTeam.map((c) => ({ ref: c, hp: maxHp(c), max: maxHp(c) }));
+export class Battle {
+  constructor(playerCreatures, enemyCreatures) {
+    // HP joueur : réels (le risque compte) ; HP ennemis : copies
+    this.p = playerCreatures.map((c) => ({ ref: c, hp: c.hp, max: maxHp(c) }));
+    this.e = enemyCreatures.map((c) => ({ ref: c, hp: maxHp(c), max: maxHp(c) }));
+    this.pi = 0;
+    this.ei = 0;
+    this.over = false;
+    this.winner = null;
+  }
 
-  let pi = 0, ei = 0;
-  let round = 0;
+  get pA() { return this.p[this.pi]; }
+  get eA() { return this.e[this.ei]; }
 
-  const alive = (f) => f && f.hp > 0;
+  snap() {
+    const f = (x) => x ? {
+      name: speciesOf(x.ref).name, speciesId: x.ref.speciesId, level: x.ref.level,
+      hp: x.hp, max: x.max, shiny: !!x.ref.shiny, type: speciesOf(x.ref).type,
+    } : null;
+    return { p: f(this.pA), e: f(this.eA) };
+  }
 
-  while (pi < pTeam.length && ei < eTeam.length && round < 200) {
-    round++;
-    const p = pTeam[pi], e = eTeam[ei];
-    const pSp = speciesOf(p.ref), eSp = speciesOf(e.ref);
+  /** Joue un tour complet : attaque du joueur (move choisi) + riposte. */
+  round(playerMove, enemyMovePicker) {
+    const steps = [];
+    if (this.over) return steps;
 
-    if (round === 1 || log[log.length - 1]?.newFighter) {
-      // rien : géré ci-dessous
-    }
+    const pFirst = spdOf(this.pA.ref) >= spdOf(this.eA.ref);
+    const order = pFirst ? ['p', 'e'] : ['e', 'p'];
 
-    // Ordre : le plus rapide frappe en premier
-    const order = spdOf(p.ref) >= spdOf(e.ref) ? [['P', p, e], ['E', e, p]] : [['E', e, p], ['P', p, e]];
+    for (const side of order) {
+      if (this.over) break;
+      const att = side === 'p' ? this.pA : this.eA;
+      const def = side === 'p' ? this.eA : this.pA;
+      if (att.hp <= 0) continue;
 
-    for (const [who, att, def] of order) {
-      if (!alive(att) || !alive(def)) continue;
-      const aSp = speciesOf(att.ref), dSp = speciesOf(def.ref);
-      const mult = typeMultiplier(aSp.type, dSp.type);
-      const crit = Math.random() < 0.08 ? 1.8 : 1;
-      const variance = 0.85 + Math.random() * 0.3;
-      let dmg = Math.max(1, Math.round((atkOf(att.ref) * 1.6 * mult * crit * variance) - defOf(def.ref) * 0.5));
+      const move = side === 'p' ? playerMove : enemyMovePicker(this.eA.ref, speciesOf(this.pA.ref).type);
+      const { dmg, mult, crit } = damage(att, def, move);
       def.hp = Math.max(0, def.hp - dmg);
 
-      let text = `${aSp.emoji} ${aSp.name} attaque ${dSp.name} : ${dmg} dégâts`;
-      if (mult > 1) text += ' (super efficace ! ×2)';
-      if (mult < 1) text += ' (peu efficace… ×0.5)';
-      if (crit > 1) text += ' 💥 CRITIQUE !';
-      log.push({
-        text, cls: crit > 1 ? 'crit' : undefined,
-        snap: snapshot(p, e, pSp, eSp), hitSide: who === 'P' ? 'enemy' : 'player',
+      steps.push({
+        type: 'attack', side, move, dmg, mult, crit,
+        ko: def.hp <= 0, snap: this.snap(),
       });
 
       if (def.hp <= 0) {
-        log.push({ text: `☠️ ${dSp.name} est K.O. !`, snap: snapshot(p, e, pSp, eSp) });
-        break;
+        const defSide = side === 'p' ? 'e' : 'p';
+        this._advance(defSide);
+        if (!this.over && (defSide === 'e' ? this.eA : this.pA)) {
+          const nxt = defSide === 'e' ? this.eA : this.pA;
+          steps.push({ type: 'switch', side: defSide, speciesId: nxt.ref.speciesId, shiny: !!nxt.ref.shiny, snap: this.snap() });
+        }
+        break; // le tour s'arrête sur un K.O.
       }
     }
 
-    if (!alive(e)) {
-      ei++;
-      if (ei < eTeam.length) {
-        const next = speciesOf(eTeam[ei].ref);
-        log.push({ text: `🤖 NEXUS envoie ${next.emoji} ${next.name} !`, newFighter: true });
-      }
-    }
-    if (!alive(p)) {
-      pi++;
-      if (pi < pTeam.length) {
-        const next = speciesOf(pTeam[pi].ref);
-        log.push({ text: `👉 À toi, ${next.emoji} ${next.name} !`, newFighter: true });
-      }
-    }
+    // Applique les HP réels du joueur
+    for (const f of this.p) f.ref.hp = f.hp;
+
+    if (this.over) steps.push({ type: 'end', winner: this.winner });
+    return steps;
   }
 
-  // Applique les dégâts réels à l'équipe du joueur
-  for (const f of pTeam) f.ref.hp = f.hp;
-
-  const winner = ei >= eTeam.length ? 'player' : 'enemy';
-  return { winner, log };
+  _advance(side) {
+    if (side === 'e') {
+      this.ei++;
+      if (this.ei >= this.e.length) { this.over = true; this.winner = 'player'; }
+    } else {
+      this.pi++;
+      if (this.pi >= this.p.length) { this.over = true; this.winner = 'enemy'; }
+    }
+  }
 }
 
-function snapshot(p, e, pSp, eSp) {
-  return {
-    player: { name: pSp.name, emoji: pSp.emoji, hp: p.hp, max: p.max, level: p.ref.level },
-    enemy: { name: eSp.name, emoji: eSp.emoji, hp: e.hp, max: e.max, level: e.ref.level },
-  };
+/** Choix auto d'attaque pour le joueur (mode ⚡ Auto) : la plus efficace */
+export function autoPickMove(creature, defenderType) {
+  const moves = movesOf(creature);
+  let best = moves[0], bestScore = -1;
+  for (const m of moves) {
+    const score = m.power * typeMultiplier(m.type, defenderType);
+    if (score > bestScore) { bestScore = score; best = m; }
+  }
+  return best;
 }

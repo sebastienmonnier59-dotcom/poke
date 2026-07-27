@@ -12,21 +12,26 @@
 <!-- ══════════ ÉCRAN D'ACCUEIL / CHOIX DU STARTER ══════════ -->
 <div id="starter-screen" class="overlay hidden">
   <div class="starter-box">
-    <h1>⚡ PokéManager Arena</h1>
-    <p class="subtitle">Deviens le plus grand manager de créatures !</p>
-    <p>Choisis ta première créature :</p>
+    <div class="game-logo">POKÉ<span>MANAGER</span> <em>ARENA</em></div>
+    <p class="subtitle">Capture. Entraîne. Domine l'Arène.</p>
+    <p class="starter-label">— Choisis ton partenaire de départ —</p>
     <div id="starter-choices" class="starter-choices"></div>
   </div>
 </div>
 
-<!-- ══════════ HEADER RESSOURCES ══════════ -->
+<!-- ══════════ HEADER HUD ══════════ -->
 <header id="topbar">
-  <div class="logo">⚡ PokéManager <span>Arena</span></div>
+  <div class="logo">POKÉ<span>MANAGER</span></div>
   <div class="resources">
-    <div class="res" title="Or : gagné en combattant"><span class="res-ico">🪙</span><span id="res-gold">0</span></div>
-    <div class="res" title="Énergie : se régénère avec le temps, même hors-ligne !"><span class="res-ico">⚡</span><span id="res-energy">0</span>/100</div>
-    <div class="res" title="Capsules : pour capturer des créatures"><span class="res-ico">🔴</span><span id="res-capsules">0</span></div>
-    <div class="res" title="Badges de victoire"><span class="res-ico">🏅</span><span id="res-badges">0</span></div>
+    <div class="res" title="Or — gagné en combattant"><span class="res-ico">◆</span><span id="res-gold">0</span></div>
+    <div class="res energy" title="Énergie — se régénère avec le temps, même hors-ligne">
+      <span class="res-ico">⚡</span>
+      <div class="energy-track"><div id="energy-fill"></div></div>
+      <span id="res-energy">0</span>
+    </div>
+    <div class="res" title="Capsules — pour capturer"><span class="res-ico caps">●</span><span id="res-capsules">0</span></div>
+    <div class="res" title="Badges de victoire"><span class="res-ico gold">★</span><span id="res-badges">0</span></div>
+    <button id="btn-mute" class="icon-btn" title="Son">♪</button>
   </div>
 </header>
 
@@ -35,39 +40,35 @@
 
 <!-- ══════════ NAVIGATION ══════════ -->
 <nav id="tabs">
-  <button class="tab active" data-tab="team">👥 Équipe</button>
-  <button class="tab" data-tab="explore">🌍 Explorer</button>
-  <button class="tab" data-tab="battle">⚔️ Arène</button>
-  <button class="tab" data-tab="dex">📖 Pokédex</button>
-  <button class="tab" data-tab="shop">🛒 Boutique</button>
+  <button class="tab active" data-tab="team"><i>◈</i>Équipe</button>
+  <button class="tab" data-tab="explore"><i>➤</i>Explorer</button>
+  <button class="tab" data-tab="battle"><i>⚔</i>Arène</button>
+  <button class="tab" data-tab="missions"><i>✦</i>Missions<span id="quest-dot" class="dot hidden"></span></button>
+  <button class="tab" data-tab="dex"><i>▤</i>Pokédex</button>
+  <button class="tab" data-tab="shop"><i>◎</i>Boutique</button>
 </nav>
 
 <main>
   <!-- ══════════ ONGLET ÉQUIPE ══════════ -->
   <section id="panel-team" class="panel active">
-    <div class="team-layout">
-      <div class="viewer-col">
-        <div id="viewer3d"></div>
-        <div id="viewer-info" class="viewer-info"></div>
-        <div class="viewer-actions">
-          <button id="btn-train" class="btn primary">🏋️ Entraîner <small>(10⚡)</small></button>
-          <button id="btn-heal" class="btn">🧪 Potion <small id="potion-count"></small></button>
-          <button id="btn-candy" class="btn">🍬 Bonbon XP <small id="candy-count"></small></button>
-        </div>
-      </div>
-      <div class="team-col">
-        <h2>Ton équipe</h2>
-        <div id="team-list" class="team-list"></div>
-        <h3 id="box-title" class="hidden">Réserve</h3>
-        <div id="box-list" class="team-list box"></div>
-      </div>
+    <div class="stage-hero">
+      <div id="stage-slot-team" class="stage-slot"></div>
+      <div id="creature-plate" class="creature-plate"></div>
     </div>
+    <div class="team-actions">
+      <button id="btn-train" class="btn primary">Entraîner<small>10 ⚡</small></button>
+      <button id="btn-heal" class="btn">Potion<small id="potion-count"></small></button>
+      <button id="btn-candy" class="btn">Bonbon XP<small id="candy-count"></small></button>
+    </div>
+    <h2 class="section-title">Escouade</h2>
+    <div id="team-list" class="team-strip"></div>
+    <h3 id="box-title" class="section-title sub hidden">Réserve</h3>
+    <div id="box-list" class="team-strip box"></div>
   </section>
 
   <!-- ══════════ ONGLET EXPLORER ══════════ -->
   <section id="panel-explore" class="panel">
-    <h2>🌍 Exploration</h2>
-    <p class="hint">Pars à l'aventure pour rencontrer des créatures sauvages. Coût : 20⚡</p>
+    <h2 class="section-title">Zones d'expédition <span class="cost-tag">20 ⚡ / expédition</span></h2>
     <div class="explore-zones" id="explore-zones"></div>
     <div id="encounter-box" class="encounter-box hidden"></div>
     <div id="explore-log" class="log"></div>
@@ -75,38 +76,66 @@
 
   <!-- ══════════ ONGLET ARÈNE ══════════ -->
   <section id="panel-battle" class="panel">
-    <h2>⚔️ Arène — Défie NEXUS, l'IA rivale</h2>
-    <p class="hint">NEXUS analyse ton équipe et s'adapte à ton niveau. Chaque victoire rapporte de l'or, de l'XP… et parfois un badge.</p>
-    <div id="nexus-taunt" class="nexus-taunt"></div>
-    <div class="battle-controls">
-      <button id="btn-fight" class="btn primary big">⚔️ Lancer un combat <small>(15⚡)</small></button>
-      <button id="btn-tournament" class="btn gold big">🏆 Tournoi <small>(40⚡ — 3 combats, gros gains)</small></button>
-    </div>
-    <div id="battle-arena" class="battle-arena hidden">
-      <div class="fighter" id="fighter-player">
-        <div class="fighter-name"></div>
-        <div class="hpbar"><div class="hpfill"></div></div>
-        <div class="fighter-sprite"></div>
+    <div id="battle-lobby">
+      <h2 class="section-title">Arène NEXUS</h2>
+      <div id="nexus-taunt" class="nexus-taunt"></div>
+      <div class="battle-controls">
+        <button id="btn-fight" class="btn primary big">Combat<small>15 ⚡</small></button>
+        <button id="btn-tournament" class="btn gold big">Tournoi<small>40 ⚡ · 3 manches</small></button>
       </div>
-      <div class="vs">VS</div>
-      <div class="fighter" id="fighter-enemy">
-        <div class="fighter-name"></div>
-        <div class="hpbar"><div class="hpfill enemy"></div></div>
-        <div class="fighter-sprite"></div>
+      <div class="battle-record" id="battle-record"></div>
+    </div>
+
+    <div id="battle-view" class="hidden">
+      <div class="battle-hud">
+        <div class="plate" id="plate-p">
+          <div class="plate-name"></div>
+          <div class="plate-lv"></div>
+          <div class="hpbar"><div class="hpfill"></div></div>
+          <div class="plate-hp"></div>
+        </div>
+        <div class="battle-vs">VS</div>
+        <div class="plate enemy" id="plate-e">
+          <div class="plate-name"></div>
+          <div class="plate-lv"></div>
+          <div class="hpbar"><div class="hpfill enemy"></div></div>
+          <div class="plate-hp"></div>
+        </div>
+      </div>
+      <div class="stage-battle">
+        <div id="stage-slot-battle" class="stage-slot"></div>
+        <div id="fx-layer"></div>
+      </div>
+      <div class="battle-bottom">
+        <div id="move-buttons" class="move-buttons"></div>
+        <div class="battle-side">
+          <label class="auto-toggle"><input type="checkbox" id="auto-battle"> AUTO</label>
+          <div id="battle-ticker" class="battle-ticker"></div>
+        </div>
       </div>
     </div>
-    <div id="battle-log" class="log"></div>
+  </section>
+
+  <!-- ══════════ ONGLET MISSIONS ══════════ -->
+  <section id="panel-missions" class="panel">
+    <h2 class="section-title">Missions du jour</h2>
+    <div id="daily-list" class="daily-list"></div>
+    <h2 class="section-title">Succès</h2>
+    <div id="ach-grid" class="ach-grid"></div>
+    <h2 class="section-title">Profil</h2>
+    <div id="profile-stats" class="profile-stats"></div>
+    <button id="btn-reset" class="btn danger" style="margin-top:14px">Recommencer une partie</button>
   </section>
 
   <!-- ══════════ ONGLET POKÉDEX ══════════ -->
   <section id="panel-dex" class="panel">
-    <h2>📖 Pokédex <span id="dex-progress"></span></h2>
+    <h2 class="section-title">Pokédex <span id="dex-progress" class="cost-tag"></span></h2>
     <div id="dex-grid" class="dex-grid"></div>
   </section>
 
   <!-- ══════════ ONGLET BOUTIQUE ══════════ -->
   <section id="panel-shop" class="panel">
-    <h2>🛒 Boutique <span id="shop-sale-badge" class="sale-badge hidden">PROMO -50% !</span></h2>
+    <h2 class="section-title">Boutique <span id="shop-sale-badge" class="sale-badge hidden">PROMO −50 %</span></h2>
     <div id="shop-grid" class="shop-grid"></div>
   </section>
 </main>

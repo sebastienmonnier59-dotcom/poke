@@ -1,5 +1,5 @@
 // ═══════════ État du jeu + sauvegarde localStorage ═══════════
-import { SPECIES_BY_ID } from './data.js';
+import { SPECIES_BY_ID, movesFor, SHINY_RATE } from './data.js';
 
 const SAVE_KEY = 'pokemanager-arena-v1';
 export const ENERGY_MAX = 100;
@@ -17,6 +17,11 @@ export const state = {
   badges: 0,
   wins: 0,
   losses: 0,
+  captures: 0,
+  trainings: 0,
+  explorations: 0,
+  tournaments: 0,
+  shinies: 0,
   team: [],
   box: [],
   dex: {},          // speciesId -> 'seen' | 'caught'
@@ -24,19 +29,20 @@ export const state = {
   effects: {},      // { xpBoost: ts, shopSale: ts, rareBoost: ts }
   starterChosen: false,
   lastEnergyTick: Date.now(),
+  daily: null,      // { date: 'YYYY-MM-DD', quests: [{id, goal, progress, claimed}] }
+  ach: {},          // achievements débloqués { id: true }
+  muted: false,
 };
 
 // ─── Créatures ───
-export function makeCreature(speciesId, level = 1) {
-  const sp = SPECIES_BY_ID[speciesId];
+export function makeCreature(speciesId, level = 1, shinyBoost = 1) {
   const c = {
     uid: 'c' + uidCounter++ + '_' + Math.random().toString(36).slice(2, 7),
     speciesId,
     level,
     xp: 0,
-    ivs: {
-      hp: rand(0, 8), atk: rand(0, 8), def: rand(0, 8), spd: rand(0, 8),
-    },
+    shiny: Math.random() < SHINY_RATE * shinyBoost,
+    ivs: { hp: rand(0, 8), atk: rand(0, 8), def: rand(0, 8), spd: rand(0, 8) },
   };
   c.hp = maxHp(c);
   return c;
@@ -54,11 +60,14 @@ export function atkOf(c) { const sp = speciesOf(c); return sp.base.atk + c.level
 export function defOf(c) { const sp = speciesOf(c); return sp.base.def + Math.floor(c.level * 1.5) + c.ivs.def; }
 export function spdOf(c) { const sp = speciesOf(c); return sp.base.spd + c.level + c.ivs.spd; }
 
+export function movesOf(c) { return movesFor(speciesOf(c).type, c.level); }
+
 export function xpToNext(c) { return 25 * c.level; }
 
-/** Ajoute de l'XP ; renvoie { levels: n, evolved: speciesId|null } */
+/** Ajoute de l'XP ; renvoie { levels, evolved, newMove } */
 export function gainXp(c, amount) {
   if (state.effects.xpBoost && state.effects.xpBoost > Date.now()) amount *= 2;
+  const movesBefore = movesOf(c).length + movesOf(c).map((m) => m.name).join();
   c.xp += Math.round(amount);
   let levels = 0;
   let evolved = null;
@@ -73,8 +82,10 @@ export function gainXp(c, amount) {
       registerDex(sp.evolvesTo, 'caught');
     }
   }
-  if (levels > 0) c.hp = maxHp(c); // soigne au niveau supérieur — petite récompense
-  return { levels, evolved };
+  if (levels > 0) c.hp = maxHp(c); // soigne au passage de niveau — petite récompense
+  const movesAfter = movesOf(c).map((m) => m.name).join();
+  const newMove = movesBefore !== movesOf(c).length + movesAfter ? movesOf(c)[movesOf(c).length - 1] : null;
+  return { levels, evolved, newMove };
 }
 
 export function registerDex(speciesId, status) {
@@ -89,6 +100,7 @@ export function activeCreature() {
 
 export function addCreature(c) {
   registerDex(c.speciesId, 'caught');
+  if (c.shiny) state.shinies++;
   if (state.team.length < TEAM_MAX) { state.team.push(c); return 'team'; }
   state.box.push(c);
   return 'box';
@@ -126,7 +138,14 @@ export function load() {
     if (!raw) return false;
     const data = JSON.parse(raw);
     Object.assign(state, data);
-    // Recale le compteur d'uid pour éviter les collisions
+    // Migration des anciennes sauvegardes (v1 → v2)
+    for (const c of [...state.team, ...state.box]) c.shiny = c.shiny || false;
+    state.daily = state.daily || null;
+    state.ach = state.ach || {};
+    state.muted = state.muted || false;
+    for (const k of ['captures', 'trainings', 'explorations', 'tournaments', 'shinies']) {
+      state[k] = state[k] || 0;
+    }
     uidCounter = state.team.length + state.box.length + 10;
     tickEnergy(); // applique la régénération hors-ligne
     return true;
@@ -135,7 +154,7 @@ export function load() {
   }
 }
 
-export function offlineGains() {
-  // Appelé après load() : résume ce qui s'est passé pendant l'absence
-  return null; // l'énergie est déjà recalculée par tickEnergy()
+export function resetSave() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  location.reload();
 }
